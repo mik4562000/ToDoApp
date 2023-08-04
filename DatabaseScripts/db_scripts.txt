@@ -1,0 +1,239 @@
+CREATE SCHEMA `todo` ;
+CREATE TABLE `todo`.`todo_items` (
+  `item_id` INT NOT NULL,
+  `item_name` VARCHAR(45) NOT NULL,
+  `status_id` INT NOT NULL,
+  PRIMARY KEY (`item_id`));
+CREATE TABLE `todo`.`d_status` (
+  `status_id` INT NOT NULL,
+  `status_name` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`status_id`));
+ALTER TABLE `todo`.`todo_items` 
+ADD INDEX `fk_status_id_idx` (`status_id` ASC) VISIBLE;
+;
+ALTER TABLE `todo`.`todo_items` 
+ADD CONSTRAINT `fk_status_id`
+  FOREIGN KEY (`status_id`)
+  REFERENCES `todo`.`d_status` (`status_id`)
+  ON DELETE RESTRICT
+  ON UPDATE RESTRICT;
+ALTER TABLE `todo`.`todo_items` 
+CHANGE COLUMN `item_id` `item_id` INT NOT NULL AUTO_INCREMENT ;
+
+
+
+USE `todo`;
+DROP procedure IF EXISTS `get_todo_items`;
+
+USE `todo`;
+DROP procedure IF EXISTS `todo`.`get_todo_items`;
+;
+
+DELIMITER $$
+USE `todo`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `get_todo_items`(in p_status_id int)
+BEGIN
+	select t.item_id,
+    t.item_name,
+    t.status_id,
+    s.status_name
+    from todo_items t
+    left join d_status s
+    on s.status_id = t.status_id
+    where t.status_id = p_status_id or
+		  p_status_id is null;
+END$$
+
+DELIMITER ;
+;
+
+
+
+
+
+
+USE `todo`;
+DROP procedure IF EXISTS `create_todo_item`;
+
+USE `todo`;
+DROP procedure IF EXISTS `todo`.`create_todo_item`;
+;
+
+DELIMITER $$
+USE `todo`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `create_todo_item`(
+in p_item_name varchar(30), 
+out p_item_id int, 
+out p_status_id int,
+out p_status_name varchar(30))
+BEGIN
+	set @new_status = 1; 
+	insert into todo_items(item_name, status_id)
+    values(p_item_name, @new_status);
+    set p_item_id = LAST_INSERT_ID();
+    set p_status_id = @new_status;
+    set p_status_name = (select t.status_name from d_status t where t.status_id = @new_status);
+END$$
+
+DELIMITER ;
+;
+
+
+
+
+USE `todo`;
+DROP procedure IF EXISTS `get_all_todo_items`;
+
+DELIMITER $$
+USE `todo`$$
+CREATE PROCEDURE `get_all_todo_items` ()
+BEGIN
+	call get_todo_items(null);
+END$$
+
+DELIMITER ;
+
+
+USE `todo`;
+DROP procedure IF EXISTS `complete_todo_item`;
+
+USE `todo`;
+DROP procedure IF EXISTS `todo`.`complete_todo_item`;
+;
+
+DELIMITER $$
+USE `todo`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `complete_todo_item`(
+in p_item_id int, 
+out p_status_id int,
+out p_status_name varchar(30) )
+BEGIN
+  set p_status_id = 2;
+  call set_status_todo_item(p_item_id, p_status_id, p_status_name);
+END$$
+
+DELIMITER ;
+;
+
+
+
+
+USE `todo`;
+DROP procedure IF EXISTS `delete_todo_item`;
+
+USE `todo`;
+DROP procedure IF EXISTS `todo`.`delete_todo_item`;
+;
+
+DELIMITER $$
+USE `todo`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `delete_todo_item`(
+in p_item_id int, 
+out p_status_id int,
+out p_status_name varchar(30) )
+BEGIN
+  set p_status_id = 3;
+  call set_status_todo_item(p_item_id, p_status_id, p_status_name);
+END$$
+
+DELIMITER ;
+;
+
+
+
+
+
+USE `todo`;
+DROP procedure IF EXISTS `change_todo_item`;
+
+USE `todo`;
+DROP procedure IF EXISTS `todo`.`change_todo_item`;
+;
+
+DELIMITER $$
+USE `todo`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `change_todo_item`(in p_item_id int, in p_item_name varchar(30))
+BEGIN
+  update todo_items t
+	set t.item_name = p_item_name
+	where t.item_id = p_item_id;
+END$$
+
+DELIMITER ;
+;
+
+
+
+USE `todo`;
+DROP procedure IF EXISTS `set_status_todo_item`;
+
+DELIMITER $$
+USE `todo`$$
+CREATE PROCEDURE `set_status_todo_item` (
+in p_item_id int, 
+in p_status_id int,
+out p_status_name varchar(30))
+BEGIN
+    if (p_status_id is not null) 
+    then
+      update todo_items t
+	  set	t.status_id = p_status_id
+	  where t.item_id = p_item_id;
+     
+	  select t.status_name
+      into p_status_name
+      from d_status t
+      where t.status_id = p_status_id;
+	end if;
+END$$
+
+DELIMITER ;
+
+
+USE `todo`;
+DROP procedure IF EXISTS `complete_todo_item`;
+
+DELIMITER $$
+USE `todo`$$
+CREATE PROCEDURE `complete_todo_item` (in p_item_id int, 
+out p_status_name varchar(30) )
+BEGIN
+  call set_status_todo_item(p_item_id, 2, p_status_name);
+END$$
+
+DELIMITER ;
+
+USE `todo`;
+DROP procedure IF EXISTS `delete_todo_item`;
+
+DELIMITER $$
+USE `todo`$$
+CREATE PROCEDURE `delete_todo_item`(in p_item_id int, 
+out p_status_name varchar(30) )
+BEGIN
+  call set_status_todo_item(p_item_id, 3, p_status_name);
+END$$
+
+DELIMITER ;
+
+
+USE `todo`;
+DROP procedure IF EXISTS `remove_todo_item`;
+
+DELIMITER $$
+USE `todo`$$
+CREATE PROCEDURE `remove_todo_item` (in p_item_id int)
+BEGIN
+  delete 
+  from todo_items t
+  where t.item_id = p_item_id;
+END$$
+
+DELIMITER ;
+
+
+
+INSERT INTO `todo`.`d_status` (`status_id`, `status_name`) VALUES ('1', 'new');
+INSERT INTO `todo`.`d_status` (`status_id`, `status_name`) VALUES ('2', 'completed');
+INSERT INTO `todo`.`d_status` (`status_id`, `status_name`) VALUES ('3', 'deleted');
+
